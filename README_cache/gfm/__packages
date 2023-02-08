@@ -1,0 +1,17 @@
+knitr
+glmmTMB
+tidyverse
+ggplot2
+tibble
+tidyr
+readr
+purrr
+dplyr
+stringr
+forcats
+broom.mixed
+bbmle
+sjPlot
+GGally
+Matrix
+lme4
