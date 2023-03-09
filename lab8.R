@@ -1,4 +1,4 @@
-## ----setup, include=FALSE---------------------------------------------------------------
+## ----setup, include=FALSE-----------------------------------------------------------
 require(knitr)
 knitr::opts_chunk$set(echo = TRUE, cache=TRUE, message = F)
 r <- getOption("repos")
@@ -6,13 +6,15 @@ r["CRAN"] <- "https://ftp.osuosl.org/pub/cran/"
 options(repos = r)
 
 
-## ----eval=F, include=F------------------------------------------------------------------
+## ----eval=F, include=F--------------------------------------------------------------
+## install.packages("devtools")
+## library(devtools)
 ## devtools::install_github("glmmTMB/glmmTMB/glmmTMB")
 ## devtools::install_github("bbolker/broom.mixed", type ="source")
 ## install.packages("broom.mixed")
 
 
-## ----packages---------------------------------------------------------------------------
+## ----packages-----------------------------------------------------------------------
 
 ipak <- function(pkg){
   new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -27,7 +29,7 @@ packages <- c("glmmTMB", "tidyverse", "broom.mixed", "bbmle", "sjPlot", "GGally"
 ipak(packages)
 
 
-## ----load_prepare_data------------------------------------------------------------------
+## ----load_prepare_data--------------------------------------------------------------
 elk <- read.table("Data/lab7_elk_migrant.csv", header=TRUE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
 elk$elkuidF <- as.factor(elk$elkuid)
 elk2 <- elk[complete.cases(elk[30:31]), ]
@@ -40,14 +42,14 @@ elk2$for2_sc <- as.numeric(scale(elk2$for2))
 elk2$risk2_sc <- as.numeric(scale(elk2$risk2))
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 forrisk_sc = glm(used~totalherb_sc+ctotrisk_sc+ctotrisk_sc*totalherb_sc, data=elk2,family=binomial(link="logit"))
 summary(forrisk_sc)
 ggcoef(forrisk_sc, exclude_intercept = TRUE)
 elk2$naive.pred <-predict(forrisk_sc, type = "response")
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 fr.rc = glmer(used~totalherb_sc+ctotrisk_sc+totalherb_sc*ctotrisk_sc+(ctotrisk_sc|elkuid), data=elk2,family=binomial(link="logit"), verbose=FALSE)
 summary(fr.rc)
 
@@ -57,18 +59,18 @@ elk2$fr.rc.pred <- predict(fr.rc, type = "response")
 hist(elk2$fr.rc.pred)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 elk2$fr.rc.pred2 <- predict(fr.rc, re.form = NA, type = "response")
 summary(elk2$fr.rc.pred2)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 elk2$fr.rc.pred3 <- predict(fr.rc, re.form = ~(1|elkuid) , type = "response")
 summary(elk2$fr.rc.pred3)
 hist(elk2$fr.rc.pred3)
 
 
-## ----add_weights------------------------------------------------------------------------
+## ----add_weights--------------------------------------------------------------------
 elk2 <-
   elk2 %>% 
   as_tibble() %>% 
@@ -80,7 +82,7 @@ elk2 <-
   rename(totalherb2_sc = for2_sc)
 
 
-## ----intercept_only_model---------------------------------------------------------------
+## ----intercept_only_model-----------------------------------------------------------
 system.time(
   forage_risk_r_int <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_risk_sc + 
                                (1|elkuid),
@@ -92,7 +94,7 @@ system.time(
 summary(forage_risk_r_int)
 
 
-## ----model_without_fixed_random_int-----------------------------------------------------
+## ----model_without_fixed_random_int-------------------------------------------------
 system.time(
   forage_risk_r_int_free <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_risk_sc + 
                                (1|elkuid),
@@ -103,7 +105,7 @@ summary(forage_risk_r_int_free)
 plot_model(forage_risk_r_int_free, transform=NULL)
 
 
-## ----random_slope_risk_model------------------------------------------------------------
+## ----random_slope_risk_model--------------------------------------------------------
 system.time(
   forage_risk_slope_risk <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_risk_sc + 
                                     (1|elkuid) + (0 + log_risk_sc|elkuid), 
@@ -116,7 +118,7 @@ summary(forage_risk_slope_risk)
 plot_model(forage_risk_slope_risk, transform=NULL)
 
 
-## ----random_slope_both_model------------------------------------------------------------
+## ----random_slope_both_model--------------------------------------------------------
 system.time(forage_risk_slopes_both <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_risk_sc + 
                                      (1|elkuid) + (0 + totalherb_sc|elkuid) + (0 + totalherb2_sc|elkuid) + 
                                      (0 + log_risk_sc|elkuid), 
@@ -129,22 +131,22 @@ summary(forage_risk_slopes_both)
 sjPlot::plot_model(forage_risk_slopes_both, transform=NULL)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 bbmle::AICtab(forage_risk_r_int, forage_risk_slope_risk, forage_risk_slopes_both)    
 
 
-## ----ran_coefs_using_coef---------------------------------------------------------------
+## ----ran_coefs_using_coef-----------------------------------------------------------
 ranef(forage_risk_slopes_both)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 coef(forage_risk_slopes_both)
 
 as_tibble(rownames_to_column(coef(forage_risk_slopes_both)$cond$elkuid, "elkuid")) %>% 
   dplyr::select(-"(Intercept)")
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 as_tibble(rownames_to_column(coef(forage_risk_slopes_both)$cond$elkuid, "elkuid")) %>% 
   dplyr::select(totalherb_sc) %>% 
   ggplot(., aes(x=totalherb_sc)) +
@@ -154,11 +156,11 @@ as_tibble(rownames_to_column(coef(forage_risk_slopes_both)$cond$elkuid, "elkuid"
   theme_classic()
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 broom.mixed::tidy(forage_risk_slopes_both, effects = "ran_vals")
 
 
-## ----ran_coefs_using_tidy---------------------------------------------------------------
+## ----ran_coefs_using_tidy-----------------------------------------------------------
 forage_ran_coefs <- broom.mixed::tidy(forage_risk_slopes_both, effects = "ran_vals") %>%
   filter(term=="totalherb_sc") %>% 
   dplyr::select(elkuid=level, estimate, std.error) %>% 
@@ -169,7 +171,7 @@ forage_ran_coefs <- broom.mixed::tidy(forage_risk_slopes_both, effects = "ran_va
 forage_ran_coefs
 
 
-## ----plot_random_coefs------------------------------------------------------------------
+## ----plot_random_coefs--------------------------------------------------------------
 ggplot(forage_ran_coefs, aes(x=elkuid, y=forage_coef)) +
     coord_flip() +
     geom_hline(yintercept = 0, linetype="dashed") +
@@ -180,7 +182,7 @@ ggplot(forage_ran_coefs, aes(x=elkuid, y=forage_coef)) +
     theme_bw(base_size = 15)
 
 
-## ----plot_with_random_and_fixed_coefs---------------------------------------------------
+## ----plot_with_random_and_fixed_coefs-----------------------------------------------
 fixed_coef <-
   broom.mixed::tidy(forage_risk_slopes_both, effects="fixed", conf.int = T) %>% 
   filter(term == "totalherb_sc")
@@ -200,7 +202,7 @@ ggplot(
   theme_bw(base_size = 15)
 
 
-## ----run_unfixed_model------------------------------------------------------------------
+## ----run_unfixed_model--------------------------------------------------------------
 system.time(forage_risk_slopes_both_UNFIXED <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_risk_sc + 
                                      (1|elkuid) + (0 + totalherb_sc|elkuid) + (0 + totalherb2_sc|elkuid) + 
                                      (0 + log_risk_sc|elkuid), 
@@ -208,7 +210,7 @@ system.time(forage_risk_slopes_both_UNFIXED <- glmmTMB(used ~ totalherb_sc + tot
 )
 
 
-## ----create_df_for_fixed_preds----------------------------------------------------------
+## ----create_df_for_fixed_preds------------------------------------------------------
 forage_for_predict_population <-
   tibble(elkuid = NA,
          totalherb = seq(min(elk2$totalherb), max(elk2$totalherb), len=100),
@@ -221,14 +223,14 @@ forage_for_predict_population <-
 forage_for_predict_population
 
 
-## ----make_fixed_preds-------------------------------------------------------------------
+## ----make_fixed_preds---------------------------------------------------------------
 pop_pred_unfixed <-
   forage_for_predict_population %>% 
   mutate(pred_LP = predict(forage_risk_slopes_both_UNFIXED, ., re.form=NA),
          pred_real = exp(pred_LP - fixef(forage_risk_slopes_both_UNFIXED)$cond["(Intercept)"]))
 
 
-## ----plot_fixed_preds-------------------------------------------------------------------
+## ----plot_fixed_preds---------------------------------------------------------------
 pop_pred_unfixed %>% 
   ggplot(., aes(x=totalherb, y=pred_real)) +
   geom_line(size=1) +
@@ -239,11 +241,11 @@ pop_pred_unfixed %>%
   select(totalherb)
 
 
-## ----echo=FALSE-------------------------------------------------------------------------
-knitr::include_graphics("/Users/mark.hebblewhite/Box Sync/Teaching/UofMcourses/WILD562/Spring2021/Labs/Lab8/Figures/Avgar_figure4.PNG")
+## ----echo=FALSE---------------------------------------------------------------------
+knitr::include_graphics("Figures/Avgar_figure4.PNG")
 
 
-## ----plogis_example---------------------------------------------------------------------
+## ----plogis_example-----------------------------------------------------------------
   forage_for_predict_population %>% 
   mutate(pred_LP = predict(forage_risk_slopes_both_UNFIXED, ., re.form=NA),
          pred_real = plogis(pred_LP - fixef(forage_risk_slopes_both_UNFIXED)$cond["(Intercept)"])) %>% 
@@ -252,7 +254,7 @@ knitr::include_graphics("/Users/mark.hebblewhite/Box Sync/Teaching/UofMcourses/W
   theme_classic(base_size=15)
 
 
-## ----fixed_predict_with_predict---------------------------------------------------------
+## ----fixed_predict_with_predict-----------------------------------------------------
 pop_pred_unfixed %>% 
   mutate(pred_01 = (pred_real - min(pred_real))/diff(range(pred_real))) %>% 
   ggplot(., aes(x=totalherb, y=pred_01)) +
@@ -260,7 +262,7 @@ pop_pred_unfixed %>%
   theme_classic(base_size=15)
 
 
-## ----manual_fixed_effects_pred----------------------------------------------------------
+## ----manual_fixed_effects_pred------------------------------------------------------
 coefs_fixed <-
   fixef(forage_risk_slopes_both_UNFIXED)$cond
 
@@ -278,7 +280,7 @@ pop_pred_unfixed_manual %>%
   select(totalherb)
 
 
-## ----custom_predict_CI_function_for_fixed-----------------------------------------------
+## ----custom_predict_CI_function_for_fixed-------------------------------------------
 pred_CI <- function(model, newdata=NULL, alpha=0.05) {
   pred0 <- predict(model, re.form=NA, newdata=newdata) - fixef(model)$cond["(Intercept)"]
   X <- model.matrix(formula(model, fixed.only=TRUE)[-2], newdata)[,-1]
@@ -299,7 +301,7 @@ pred_CI(forage_risk_slopes_both_UNFIXED, forage_for_predict_population) %>%
   theme_classic(base_size=15) 
 
 
-## ----create_ind_df_for_predict----------------------------------------------------------
+## ----create_ind_df_for_predict------------------------------------------------------
 for_predict_ind <-
   elk2 %>% 
   select(elkuid, totalherb) %>%
@@ -316,7 +318,7 @@ for_predict_ind <-
 for_predict_ind
 
 
-## ----get_ind_coefs_for_predict----------------------------------------------------------
+## ----get_ind_coefs_for_predict------------------------------------------------------
 coefs_ind <-   
   rownames_to_column(coef(forage_risk_slopes_both)$cond$elkuid, "elkuid") %>% 
   rename(ran_int = `(Intercept)`,
@@ -328,7 +330,7 @@ for_predict_ind <-
   inner_join(coefs_ind)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 for_predict_ind %>%
   mutate(pred = exp(totalherb_sc*forage_coef + totalherb2_sc*forage2_coef)) %>% 
   ggplot(., aes(x=totalherb, y=pred, color=elkuid)) +
@@ -336,7 +338,7 @@ for_predict_ind %>%
   theme_classic(base_size=15)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 for_predict_ind %>%
   mutate(pred = exp(totalherb_sc*forage_coef + totalherb2_sc*forage2_coef)) %>% 
   ggplot(., aes(x=totalherb, y=pred, color=elkuid)) +
@@ -345,7 +347,7 @@ for_predict_ind %>%
   coord_cartesian(xlim= c(0,200), ylim=c(0,10))
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 fixed_response <- pred_CI(forage_risk_slopes_both, forage_for_predict_population)
 
 for_predict_ind %>%
@@ -358,7 +360,7 @@ for_predict_ind %>%
     coord_cartesian(xlim= c(0,200), ylim=c(0,10))
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 for_predict_ind %>%
   mutate(pred = exp(predict(forage_risk_slopes_both, .) - ran_int)) %>% 
   ggplot(., aes(x=totalherb, y=pred, color=elkuid)) +
@@ -369,7 +371,7 @@ for_predict_ind %>%
     coord_cartesian(xlim= c(0,200), ylim=c(0,10))
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 elk2 %>%
   filter(used==0) %>%
   mutate(elkuid=NA,
@@ -379,7 +381,7 @@ elk2 %>%
   theme_classic(base_size=20)
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 elk2 <-  
   elk2 %>% 
     group_by(elkuid) %>% 
@@ -392,12 +394,12 @@ elk2 <-
            mean_herb2_sc = as.numeric(scale(mean_herb2)))
 
 
-## ---------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 hist(elk2$mean_risk_sc)
 hist(elk2$mean_herb2)
 
 
-## ----functional_response_model----------------------------------------------------------
+## ----functional_response_model------------------------------------------------------
 forage_risk_slopes_both_FR <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_risk_sc + 
                                         log_risk_sc:mean_risk_sc + totalherb_sc:mean_herb_sc + 
                                         totalherb2_sc:mean_herb2_sc + 
@@ -410,6 +412,9 @@ forage_risk_slopes_both_FR <- glmmTMB(used ~ totalherb_sc + totalherb2_sc + log_
 plot_model(forage_risk_slopes_both_FR, transform = NULL)
 
 
-## ----AIC_model_comparison---------------------------------------------------------------
+## ----AIC_model_comparison-----------------------------------------------------------
 bbmle::AICtab(forage_risk_slopes_both, forage_risk_slopes_both_FR)
+
+## ----eval=FALSE, include=FALSE------------------------------------------------------
+## knitr::purl(input = "README.Rmd", output = "lab8.R", documentation = 1)
 
